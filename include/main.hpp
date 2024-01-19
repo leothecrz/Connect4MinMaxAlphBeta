@@ -13,7 +13,7 @@
 
 //SIZE CONST
 extern const int SIZE = 8;
-extern const int MAX_INNER_DEPTH = 3;
+extern const int MAX_INNER_DEPTH = 4;
 
 // TILES
 extern const char AI_TILE = 'X';

@@ -109,9 +109,53 @@ void getMoveFromUser()
 
 }
 
-int evaluateConnectFour(const char board[SIZE][SIZE], char player) 
+int evaluateConnectFour(const char b[SIZE][SIZE]) 
 {
     int score = 0;
+
+    for (int i = 0; i < SIZE; i++) 
+        for (int j = 0; j <= SIZE - 4; j++) 
+        {
+            char candidate = b[i][j];
+            if(candidate == BLANK_TILE)
+                continue;
+
+            int multiplyer = (candidate == AI_TILE) ? 1 : -1;
+            int result = 1;;
+            for(int k = 1; k<3; k++)
+            {
+                if(candidate == b[i][j+k])
+                    result *= 10;
+                else
+                    k = 3;
+            }
+            if( result >= 100 && candidate == b[i][j+3])
+                return multiplyer * INT32_MAX;
+
+            score += (result * multiplyer);
+        }
+    
+    for(int i = 0; i <= SIZE - 4; i++) 
+        for (int j = 0; j < SIZE; j++) 
+        {
+            char candidate = b[i][j];
+            if(candidate == BLANK_TILE)
+                continue;
+
+            int multiplyer = (candidate == AI_TILE) ? 1 : -1;
+            int result = 1;
+            for(int k = 1; k<3; k++)
+            {
+                if(candidate == b[i+k][j])
+                    result *= 10;
+                else
+                    k = 3;
+            }
+            if(result >= 100 && candidate == b[i+3][j])
+                return multiplyer * INT32_MAX;
+
+            score += (result * multiplyer);
+        }
 
     return score;
 }
@@ -143,7 +187,6 @@ char checkFourInARow(char b[SIZE][SIZE])
     return '\0';
 }
 
-
 int minimax(char b[SIZE][SIZE], int depth, int alpha, int beta, bool maxPlayer)
 {
 
@@ -170,20 +213,25 @@ int minimax(char b[SIZE][SIZE], int depth, int alpha, int beta, bool maxPlayer)
     //         return ref.getEval();
     //     }
     // }
-    
+
     char result = checkFourInARow(b);
-    if(depth == 0 || result != '\0' )
+    //int eval = evaluateConnectFour(b);
+    if(depth == 0 || result != '\0')
     {
         int eval = 0;
         if(result == USER_TILE)
             eval = (-depth) - 1 ;
         else if (result == AI_TILE)
             eval = (depth) + 1;
-        
+        return eval;
         //transpositionTable[boardKey] = Node(depth,eval,EXACT);
-        return eval;    
+        //return eval;    
     }
-    int c = 0;
+
+    // if(eval == INT32_MAX)
+    //     return eval - (MAX_INNER_DEPTH - depth);
+    // if(eval == INT32_MIN)
+    //     return eval + (MAX_INNER_DEPTH - depth);    
     if(maxPlayer)
     {
         int bestScore = INT32_MIN;
@@ -235,33 +283,71 @@ void AIMakeMove()
 
     minimaxCalls = 0;
     copiesFound = 0;
-    auto start_time = std::chrono::high_resolution_clock::now();
-    int bestScore = INT32_MIN;
+    int bestScore;
+    int maxDepth = 0;
+    bool earlyEnd = false;
+    std::vector<int> bestMove(2,0);
     std::vector<int> move(2,0);
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-    transpositionTable.clear();
+    //transpositionTable.clear();
 
-    for (size_t i = 0; i < SIZE; i++)
-        for (size_t j = 0; j < SIZE; j++)
-        {
-            if(board[i][j] != BLANK_TILE)
-                continue;
-            
-            board[i][j] = AI_TILE;
-            int score = minimax(board, MAX_INNER_DEPTH, INT32_MIN, INT32_MAX, false);
-            board[i][j] = BLANK_TILE;
-
-            if(score > bestScore)
+    for (size_t k = 1; k <= MAX_INNER_DEPTH; k++)
+    {
+        bestScore = INT32_MIN;
+        maxDepth++;
+        for (size_t i = 0; i < SIZE; i++)
+        
+            for (size_t j = 0; j < SIZE; j++)
             {
-                bestScore = score;
-                move[0] = i;
-                move[1] = j;
+                if(board[i][j] != BLANK_TILE)
+                    continue;
+                
+                board[i][j] = AI_TILE;
+                int score = minimax(board, MAX_INNER_DEPTH, INT32_MIN, INT32_MAX, false);
+                board[i][j] = BLANK_TILE;
+
+                if(score > bestScore)
+                {
+                    bestScore = score;
+                    std::cout << "\nNew Move Found: (" << (char)(move[0] + 'A') << ", " << move[1] + 1 << ") TO (" << (char)(i+'A') << ", " << j+1 << ")\n";
+                    move[0] = i;
+                    move[1] = j;
+                }
+
+                auto cTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start_time).count();
+                if(cTime > 4800000)
+                {
+                    k = MAX_INNER_DEPTH;
+                    i = SIZE;
+                    j = SIZE;
+                    earlyEnd = true;
+                }
             }
 
+        if(!earlyEnd)
+        {
+            bestMove[0] = move[0];
+            bestMove[1] = move[1];
         }
+    }
+    
+    if(board[bestMove[0]][bestMove[1]] != BLANK_TILE)
+    {
+        std::cout << "ERROR MOVE";
+        for (size_t i = 0; i < SIZE; i++)
+            for (size_t j = 0; j < SIZE; j++)
+                if(board[i][j] == BLANK_TILE)
+                {
+                    bestMove[0] = i;
+                    bestMove[1] = j;
+                    board[i][j] = AI_TILE;
+                }
+    }
+    else
+        board[bestMove[0]][bestMove[1]] = AI_TILE;
     
     
-    board[move[0]][move[1]] = AI_TILE;
     if(AI_TILE == checkFourInARow(board))
     {
         endstate = AI_WIN;
@@ -275,7 +361,8 @@ void AIMakeMove()
     std::cout << "Execution time: " << executionTimeMicroseconds << " seconds." 
     << "\nMinimax calls: " << minimaxCalls 
     << "\nMove Made: " << (char)(move[0] + 'A') << " , " << (move[1] + 1)
-    << "\nCopies Skiped: " << copiesFound 
+    << "\nMove Score: " << bestScore 
+    << "\nMax Depth: " << maxDepth 
     << std::endl;
 
 }
