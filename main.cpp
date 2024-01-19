@@ -1,22 +1,15 @@
 
 #include "main.hpp"
 
-enum ENDSTATES
-{
-    NOT_SET,
-    PLAYER_WIN,
-    DRAW,
-    AI_WIN
-};
-
-bool aiMadeFirstMove = false;
-bool gameover = false;
-ENDSTATES endstate = NOT_SET;
+//GLOBALS
 char board[SIZE][SIZE];
-
+bool gameover = false;
+int moves;
 int minimaxCalls;
-
-std::unordered_map<std::string, Node> transpositionTable;
+int copiesFound;
+ENDSTATES endstate = NOT_SET;
+std::unordered_map<size_t, Node> transpositionTable;
+//
 
 void setupBoard()
 {
@@ -91,38 +84,9 @@ int getIntFrom1to8()
     return userInput;
 }
 
-char checkFourInARow(char b[SIZE][SIZE]) 
-{
-    for (int i = 0; i < SIZE; ++i) 
-        for (int j = 0; j <= SIZE - 4; ++j) 
-        {
-            char candidate = b[i][j];
-            if (candidate != '-' 
-                && b[i][j + 1] == candidate 
-                && b[i][j + 2] == candidate 
-                && b[i][j + 3] == candidate) 
-                return candidate;
-        }
-    
-    for(int i = 0; i <= SIZE - 4; ++i) 
-        for (int j = 0; j < SIZE; ++j) 
-        {
-            char candidate = b[i][j];
-            if (candidate != '-' 
-                && b[i + 1][j] == candidate 
-                && b[i + 2][j] == candidate 
-                && b[i + 3][j] == candidate) 
-                return candidate;
-        }
-    
-    return '\0';
-}
-
 void getMoveFromUser()
 {
-    if(!aiMadeFirstMove)
-        aiMadeFirstMove = true;
-    
+
     std::cout << "-- Users Turn --\n";
     
     char cRow = getCharFromAtoH();
@@ -145,16 +109,68 @@ void getMoveFromUser()
 
 }
 
+int evaluateConnectFour(const char board[SIZE][SIZE], char player) 
+{
+    int score = 0;
+
+    return score;
+}
+
+char checkFourInARow(char b[SIZE][SIZE]) 
+{
+    for (int i = 0; i < SIZE; i++) 
+        for (int j = 0; j <= SIZE - 4; j++) 
+        {
+            char candidate = b[i][j];
+            if (candidate != '-' 
+                && b[i][j + 1] == candidate 
+                && b[i][j + 2] == candidate 
+                && b[i][j + 3] == candidate) 
+                return candidate;
+        }
+    
+    for(int i = 0; i <= SIZE - 4; i++) 
+        for (int j = 0; j < SIZE; j++) 
+        {
+            char candidate = b[i][j];
+            if (candidate != '-' 
+                && b[i + 1][j] == candidate 
+                && b[i + 2][j] == candidate 
+                && b[i + 3][j] == candidate) 
+                return candidate;
+        }
+    
+    return '\0';
+}
+
+
 int minimax(char b[SIZE][SIZE], int depth, int alpha, int beta, bool maxPlayer)
 {
-    //std::string boardKey(reinterpret_cast<char*>(b), SIZE * SIZE * sizeof(char));
-    //auto it = transpositionTable.find(boardKey);
-    //if (it != transpositionTable.end())
-    //{
-    //    return transpositionTable[boardKey].getEval();
-    //}
 
-    //
+    // size_t boardKey = hashBoard(b);
+    // auto it = transpositionTable.find(boardKey);
+    // if (it != transpositionTable.end())
+    // {
+    //     Node& ref = transpositionTable[boardKey];
+    //     switch (ref.getType())
+    //     {
+    //     case EXACT: 
+    //         copiesFound++;
+    //         return ref.getEval();
+    //     case UPPER: 
+    //             alpha = std::max(alpha, ref.getEval());
+    //         break;
+    //     case LOWER:
+    //             beta = std::min(beta, ref.getEval());
+    //         break;
+    //     }
+    //     if(beta <= alpha)
+    //     {
+    //         copiesFound++;
+    //         return ref.getEval();
+    //     }
+    // }
+    
     char result = checkFourInARow(b);
     if(depth == 0 || result != '\0' )
     {
@@ -180,11 +196,10 @@ int minimax(char b[SIZE][SIZE], int depth, int alpha, int beta, bool maxPlayer)
 
                 b[i][j] = AI_TILE;
                 int score = minimax(b, depth-1, alpha, beta, false);
-
                 b[i][j] = BLANK_TILE;
+
                 bestScore = std::max(score, bestScore);
                 alpha = std::max(alpha, score);
-
                 if(beta <= alpha)
                     break;
             }
@@ -204,9 +219,9 @@ int minimax(char b[SIZE][SIZE], int depth, int alpha, int beta, bool maxPlayer)
                 b[i][j] = USER_TILE;
                 int score = minimax(b, depth-1, alpha, beta, true);
                 b[i][j] = BLANK_TILE;
+
                 playerBest = std::min(score, playerBest);
                 beta = std::min(beta, score);
-
                 if(beta <= alpha)
                     break;
             }
@@ -215,51 +230,36 @@ int minimax(char b[SIZE][SIZE], int depth, int alpha, int beta, bool maxPlayer)
     }
 }
 
-int getRandomNumber(int min, int max) {
-    std::random_device rd;  // Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-    std::uniform_int_distribution<> dis(min, max);
-
-    return dis(gen);
-}
-
-void AIFirstMove()
-{
-    board[getRandomNumber(0,7)][getRandomNumber(0,7)] = 'X';
-}
-
 void AIMakeMove()
 {
-    // if(!aiMadeFirstMove)
-    // {
-    //     aiMadeFirstMove = true;
-    //     AIFirstMove();
-    //     return;
-    // }
 
     minimaxCalls = 0;
+    copiesFound = 0;
     auto start_time = std::chrono::high_resolution_clock::now();
     int bestScore = INT32_MIN;
     std::vector<int> move(2,0);
+
+    transpositionTable.clear();
+
     for (size_t i = 0; i < SIZE; i++)
-    {
         for (size_t j = 0; j < SIZE; j++)
         {
             if(board[i][j] != BLANK_TILE)
                 continue;
             
-            
             board[i][j] = AI_TILE;
-            int score = minimax(board, MAX_DEPTH, INT32_MIN, INT32_MAX, false);
+            int score = minimax(board, MAX_INNER_DEPTH, INT32_MIN, INT32_MAX, false);
             board[i][j] = BLANK_TILE;
+
             if(score > bestScore)
             {
                 bestScore = score;
                 move[0] = i;
                 move[1] = j;
             }
+
         }
-    }
+    
     
     board[move[0]][move[1]] = AI_TILE;
     if(AI_TILE == checkFourInARow(board))
@@ -270,16 +270,38 @@ void AIMakeMove()
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    std::cout << "Execution time: " << duration.count() << " microseconds" << "\n Minimax calls: " << minimaxCalls << std::endl;
+    double executionTimeMicroseconds = static_cast<double>(duration.count()) / 1000000;
+    
+    std::cout << "Execution time: " << executionTimeMicroseconds << " seconds." 
+    << "\nMinimax calls: " << minimaxCalls 
+    << "\nMove Made: " << (char)(move[0] + 'A') << " , " << (move[1] + 1)
+    << "\nCopies Skiped: " << copiesFound 
+    << std::endl;
+
+}
+
+size_t hashBoard(const char b[SIZE][SIZE]) 
+{
+    std::hash<char> hasher;
+    size_t hashValue = 0;
+
+    for (int i = 0; i < SIZE; ++i) 
+        for (int j = 0; j < SIZE; ++j) 
+            hashValue ^= (hasher(b[i][j]) + 0x9e3779b9 + (hashValue << 6) + (hashValue >> 2));
+
+    return hashValue;
 }
 
 int main(int, char**)
 {
+    
     bool playerFirst = false;
     if(getYesNoResponse("Will the user go first (y/n) ?\n >>"))
         playerFirst = true;
     else
         playerFirst = false;
+
+    moves = 0;
 
     setupBoard();
     printBoard();
@@ -289,11 +311,20 @@ int main(int, char**)
 
         playerFirst ? getMoveFromUser() : AIMakeMove();
         printBoard();
+
         if(!gameover)
         {
             playerFirst ? AIMakeMove() : getMoveFromUser();
             printBoard();
         }
+        
+        moves += 2;
+        if(moves >= 64)
+        {
+            endstate = DRAW;
+            gameover = true;
+        }
+
     }
     
     switch (endstate)

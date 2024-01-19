@@ -9,15 +9,24 @@
 
 #include <unordered_map>
 
-#include <random>
-
 #include "node.hpp"
 
+//SIZE CONST
 extern const int SIZE = 8;
-extern const int MAX_DEPTH = 4;
+extern const int MAX_INNER_DEPTH = 3;
+
+// TILES
 extern const char AI_TILE = 'X';
 extern const char USER_TILE = 'O';
 extern const char BLANK_TILE = '-';
+
+enum ENDSTATES
+{
+    NOT_SET,
+    PLAYER_WIN,
+    DRAW,
+    AI_WIN
+};
 
 void setupBoard();
 
@@ -36,5 +45,7 @@ void getMoveFromUser();
 int minimax(char b[SIZE][SIZE], int depth, int alpha, int beta, bool maxPlayer);
 
 void AIMakeMove();
+
+size_t hashBoard(const char b[SIZE][SIZE]);
 
 int main(int, char**);
